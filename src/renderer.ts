@@ -242,6 +242,88 @@ export class Renderer {
     };
   }
 
+  async parseCalendly(url: string, months: string[]): Promise<{ [month: string]: { [day: string]: string[] } }> {
+    console.log(`Scraping ${url} with ${months.join(', ')}`);
+    const page = await this.browser.newPage();
+
+    try {
+      let response: puppeteer.HTTPResponse | null = null;
+      // Capture main frame response. This is used in the case that rendering
+      // times out, which results in puppeteer throwing an error. This allows us
+      // to return a partial response for what was able to be rendered in that
+      // time frame.
+      page.on('response', (r: puppeteer.HTTPResponse) => {
+        if (!response) {
+          response = r;
+        }
+      });
+
+      const availabilities: { [month: string]: { [day: string]: string[] } } = {};
+
+      for (const month of months) {
+        const queryURL = `${url}?months=${month}&timezone=UTC`;
+        console.log(`Start with ${queryURL}`)
+        availabilities[month] = {};
+          // Navigate to page.
+          response = await page.goto(queryURL, {
+            timeout: this.config.timeout, // Default of 10 seconds
+            waitUntil: 'domcontentloaded',
+          });
+          // Wait for the calendar to load
+          console.log('Wait for the HTML DOM to load.');
+          await page.waitForSelector('[data-testid="calendar-table"]');
+          // Wait for additional 5 seconds to update availability
+          console.log('Wait for 5 seconds to update availability');
+          await page.waitForTimeout(5000);
+
+        const calendarTable = await page.$('[data-testid="calendar-table"]');
+        if (!calendarTable) {
+          console.log('No calendar table found');
+          continue;
+        }
+        if (calendarTable) {
+          console.log('Calendar table found and waiting for table to render.');
+          // await calendarTable.evaluate(table => table.outerHTML);
+          // Fetch all buttons that are descendants of the calendarTable and are not disabled
+          const enabledButtons = await calendarTable.$$('button:not(:disabled)');
+
+          // Check if no enabled buttons are found
+          if (enabledButtons.length === 0) {
+            console.log('No enabled buttons found');
+            continue;
+          }
+
+          for (const button of enabledButtons) {
+            // Each button represents a day of the month
+            const day = await button.evaluate(button => button.querySelector('span')?.textContent) ?? '';
+            console.log(`Find availability for ${month}-${day}`);
+
+            // Navigate to the day
+            await button.click();
+
+            // Wait for JavaScript to render the time buttons
+            // await page.waitForTimeout(10);
+            const timeButtons = await page.$$('[data-container="time-button"]');
+
+            // Each time button represents a time slot
+            const startTimes = await Promise.all(timeButtons.map((timeButton => 
+              timeButton.evaluate((button) => button.getAttribute('data-start-time'))
+            )))
+
+            console.log(`Found ${startTimes.length} times for ${month}-${day}`);
+            availabilities[month][day] = Array.from(new Set(startTimes)).filter((time) => time !== null) as string[];
+          }
+        }
+      }
+      return availabilities;
+    } catch (e) {
+      console.error(e);
+      return {};
+    } finally {
+      await page.close();
+    }
+  }
+
   async screenshot(
     url: string,
     isMobile: boolean,

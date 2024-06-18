@@ -10,6 +10,7 @@ import url from 'url';
 
 import { Renderer, ScreenshotError } from './renderer';
 import { Config, ConfigManager } from './config';
+import moment from 'moment';
 
 /**
  * Rendertron rendering service. This runs the server which routes rendering
@@ -95,6 +96,14 @@ export class Rendertron {
       route.get('/render/:url(.*)', this.handleRenderRequest.bind(this))
     );
     this.app.use(
+      route.get('/calendly/', async (ctx: Koa.Context) => {
+        // Get months, if empty, use the current month.
+        const months = ctx.request.body.months ? ctx.request.body.months.split('&') : [moment().format('YYYY-MM')];
+        const url = ctx.request.body.url;
+        await this.handleCalendlyRequest(ctx, url, months);
+      })
+    );
+    this.app.use(
       route.get('/screenshot/:url(.*)', this.handleScreenshotRequest.bind(this))
     );
     this.app.use(
@@ -169,6 +178,32 @@ export class Rendertron {
     ctx.status = serialized.status;
     ctx.body = serialized.content;
   }
+
+
+  async handleCalendlyRequest(ctx: Koa.Context, url: string, months: string[]) {
+    if (!this.renderer) {
+      throw new Error('No renderer initalized yet.');
+    }
+
+    if (!url.includes('calendly.com')) {
+      ctx.status = 403;
+      return;
+    }
+
+    try {
+      const availabilities = await this.renderer.parseCalendly(url, months);
+      // Mark the response as coming from Rendertron.
+      ctx.set('x-renderer', 'rendertron');
+      ctx.status = 200;
+      ctx.set('Content-Type', 'application/json');
+      ctx.body = JSON.stringify(availabilities);
+    } catch (err) {
+      console.error(err);
+      ctx.status = 500;
+      ctx.body = 'Internal Server Error';
+    }
+  }
+
 
   async handleScreenshotRequest(ctx: Koa.Context, url: string) {
     if (!this.renderer) {
