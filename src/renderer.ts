@@ -242,8 +242,8 @@ export class Renderer {
     };
   }
 
-  async parseCalendly(url: string, months: string[]): Promise<{ [month: string]: { [day: string]: string[] } }> {
-    console.log(`Scraping ${url} with ${months.join(', ')}`);
+  async parseCalendly(url: string, months: string[], slotDurationInMinutes: string): Promise<{ [month: string]: { [day: string]: string[] } }> {
+    console.log(`Scraping ${url} for ${months.join(', ')} with slot duration ${slotDurationInMinutes}`);
     const page = await this.browser.newPage();
 
     try {
@@ -258,23 +258,54 @@ export class Renderer {
         }
       });
 
+      // =================================
+      // Find the child link if available
+      // =================================
+      let link = url;
+
+      // Navigate to page.
+      response = await page.goto(link, {
+        timeout: this.config.timeout, // Default of 10 seconds
+        waitUntil: 'networkidle0',
+      });
+      // First look for any child calendly link
+      console.log('Look for any child calendly link');
+      const links: string[] = await page.$$eval('a[data-id="event-type"]', elements =>
+        elements
+          .map((element) => element.getAttribute('href') ?? '')
+          .filter((href) => href !== '')
+          .map((href) => (href.startsWith('https://calendly.com') ? href : `https://calendly.com${href}`))
+      );
+
+      // Find the one that matches duration.
+      const matchingLink = links.find((l) => l.includes(`${slotDurationInMinutes}`)) ?? (links.length > 0 ? links[0] : '');
+      if (matchingLink) {
+        console.log(`Found matching link ${matchingLink}`);
+        link = matchingLink;
+      } else {
+        console.log(`No child link found. Using ${link} as is`);
+      }
+
+      // Start with empty availabilities.
       const availabilities: { [month: string]: { [day: string]: string[] } } = {};
 
       for (const month of months) {
-        const queryURL = `${url}?months=${month}&timezone=UTC`;
-        console.log(`Start with ${queryURL}`)
+        const queryURL = `${link}?months=${month}&timezone=UTC`;
+        console.log(`Scraping ${queryURL}`)
         availabilities[month] = {};
-          // Navigate to page.
-          response = await page.goto(queryURL, {
-            timeout: this.config.timeout, // Default of 10 seconds
-            waitUntil: 'domcontentloaded',
-          });
-          // Wait for the calendar to load
-          console.log('Wait for the HTML DOM to load.');
-          await page.waitForSelector('[data-testid="calendar-table"]');
-          // Wait for additional 5 seconds to update availability
-          console.log('Wait for 5 seconds to update availability');
-          await page.waitForTimeout(5000);
+
+        // Navigate to page.
+        response = await page.goto(queryURL, {
+          timeout: this.config.timeout, // Default of 10 seconds
+          waitUntil: 'networkidle0',
+        });
+       
+        // Wait for the calendar to load
+        console.log('Wait for the HTML DOM to load.');
+        await page.waitForSelector('[data-testid="calendar-table"]');
+        // Wait for additional 5 seconds to update availability
+        console.log('Wait for 5 seconds to update availability');
+        await page.waitForTimeout(5000);
 
         const calendarTable = await page.$('[data-testid="calendar-table"]');
         if (!calendarTable) {

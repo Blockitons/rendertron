@@ -99,8 +99,14 @@ export class Rendertron {
       route.get('/calendly/', async (ctx: Koa.Context) => {
         // Get months, if empty, use the current month.
         const months = ctx.request.body.months ? ctx.request.body.months.split('&') : [moment().format('YYYY-MM')];
+        const slotDurationInMinutes = ctx.request.body.slotDurationInMinutes ?? '30';
         const url = ctx.request.body.url;
-        await this.handleCalendlyRequest(ctx, url, months);
+        if (!url) {
+          ctx.status = 400;
+          ctx.body = 'URL is required';
+          return;
+        }
+        await this.handleCalendlyRequest(ctx, url, months, slotDurationInMinutes);
       })
     );
     this.app.use(
@@ -180,7 +186,7 @@ export class Rendertron {
   }
 
 
-  async handleCalendlyRequest(ctx: Koa.Context, url: string, months: string[]) {
+  async handleCalendlyRequest(ctx: Koa.Context, url: string, months: string[], slotDurationInMinutes: string) {
     if (!this.renderer) {
       throw new Error('No renderer initalized yet.');
     }
@@ -191,7 +197,7 @@ export class Rendertron {
     }
 
     try {
-      const availabilities = await this.renderer.parseCalendly(url, months);
+      const availabilities = await this.renderer.parseCalendly(url, months, slotDurationInMinutes);
       // Mark the response as coming from Rendertron.
       ctx.set('x-renderer', 'rendertron');
       ctx.status = 200;
