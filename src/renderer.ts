@@ -290,12 +290,14 @@ export class Renderer {
       const availabilities: { [month: string]: { [day: string]: string[] } } = {};
 
       for (const month of months) {
-        const queryURL = `${link}?month=${month}&timezone=UTC`;
-        console.log(`Scraping ${queryURL}`)
+        const newUrl = new URL(link);
+        newUrl.searchParams.set('month', month);
+        newUrl.searchParams.set('timezone', 'UTC');
+        console.log(`Scraping ${newUrl.toString()}`);
         availabilities[month] = {};
 
         // Navigate to page.
-        response = await page.goto(queryURL, {
+        response = await page.goto(newUrl.toString(), {
           timeout: this.config.timeout, // Default of 10 seconds
           waitUntil: 'networkidle0',
         });
