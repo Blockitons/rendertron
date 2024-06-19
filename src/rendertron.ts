@@ -194,6 +194,9 @@ export class Rendertron {
       ctx.status = 403;
       return;
     }
+    if (!url.startsWith('http')) {
+      url = `https://${url}`;
+    }
 
     try {
       const availabilities = await this.renderer.parseCalendly(url, months, slotDurationInMinutes);
