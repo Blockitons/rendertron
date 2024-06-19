@@ -290,7 +290,7 @@ export class Renderer {
       const availabilities: { [month: string]: { [day: string]: string[] } } = {};
 
       for (const month of months) {
-        const queryURL = `${link}?months=${month}&timezone=UTC`;
+        const queryURL = `${link}?month=${month}&timezone=UTC`;
         console.log(`Scraping ${queryURL}`)
         availabilities[month] = {};
 
@@ -304,8 +304,8 @@ export class Renderer {
         console.log('Wait for the HTML DOM to load.');
         await page.waitForSelector('[data-testid="calendar-table"]');
         // Wait for additional 5 seconds to update availability
-        console.log('Wait for 5 seconds to update availability');
-        await page.waitForTimeout(5000);
+        console.log('Wait for 1 seconds to update availability');
+        await page.waitForTimeout(1000);
 
         const calendarTable = await page.$('[data-testid="calendar-table"]');
         if (!calendarTable) {

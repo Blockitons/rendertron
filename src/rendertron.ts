@@ -96,11 +96,10 @@ export class Rendertron {
       route.get('/render/:url(.*)', this.handleRenderRequest.bind(this))
     );
     this.app.use(
-      route.get('/calendly/', async (ctx: Koa.Context) => {
+      route.post('/calendly/', async (ctx: Koa.Context) => {
         // Get months, if empty, use the current month.
-        const months = ctx.request.body.months ? ctx.request.body.months.split('&') : [moment().format('YYYY-MM')];
-        const slotDurationInMinutes = ctx.request.body.slotDurationInMinutes ?? '30';
-        const url = ctx.request.body.url;
+        const { months: rawMonths, slotDurationInMinutes = '30', url } = ctx.request.body;
+        const months = rawMonths.length > 0 ? rawMonths : [moment().format('YYYY-MM')];
         if (!url) {
           ctx.status = 400;
           ctx.body = 'URL is required';
