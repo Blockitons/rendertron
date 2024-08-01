@@ -45,11 +45,7 @@ export class Renderer {
     return false;
   }
 
-  async serialize(
-    requestUrl: string,
-    isMobile: boolean,
-    timezoneId?: string
-  ): Promise<SerializedResponse> {
+  async serialize(requestUrl: string, isMobile: boolean, timezoneId?: string): Promise<SerializedResponse> {
     /**
      * Executed on the page after the page has loaded. Strips script and
      * import tags to prevent further loading of resources.
@@ -57,7 +53,7 @@ export class Renderer {
     function stripPage() {
       // Strip only script tags that contain JavaScript (either no type attribute or one that contains "javascript")
       const elements = document.querySelectorAll(
-        'script:not([type]), script[type*="javascript"], script[type="module"], link[rel=import]'
+        'script:not([type]), script[type*="javascript"], script[type="module"], link[rel=import]',
       );
       for (const e of Array.from(elements)) {
         e.remove();
@@ -182,9 +178,7 @@ export class Renderer {
     // code.
     let statusCode = response.status();
     const newStatusCode = await page
-      .$eval('meta[name="render:status_code"]', (element) =>
-        parseInt(element.getAttribute('content') || '')
-      )
+      .$eval('meta[name="render:status_code"]', (element) => parseInt(element.getAttribute('content') || ''))
       .catch(() => undefined);
     // On a repeat visit to the same origin, browser cache is enabled, so we may
     // encounter a 304 Not Modified. Instead we'll treat this as a 200 OK.
@@ -206,10 +200,7 @@ export class Renderer {
         if (header) {
           const i = header.indexOf(':');
           if (i !== -1) {
-            result.set(
-              header.substr(0, i).trim(),
-              header.substring(i + 1).trim()
-            );
+            result.set(header.substr(0, i).trim(), header.substring(i + 1).trim());
           }
         }
         return JSON.stringify([...result]);
@@ -223,7 +214,7 @@ export class Renderer {
     await page.evaluate(
       injectBaseHref,
       `${parsedUrl.protocol}//${parsedUrl.host}`,
-      `${dirname(parsedUrl.pathname || '')}`
+      `${dirname(parsedUrl.pathname || '')}`,
     );
 
     // Serialize page.
@@ -235,14 +226,16 @@ export class Renderer {
     }
     return {
       status: statusCode,
-      customHeaders: customHeaders
-        ? new Map(JSON.parse(customHeaders))
-        : new Map(),
+      customHeaders: customHeaders ? new Map(JSON.parse(customHeaders)) : new Map(),
       content: result,
     };
   }
 
-  async parseCalendly(url: string, months: string[], slotDurationInMinutes: string): Promise<{ [month: string]: { [day: string]: string[] } }> {
+  async parseCalendly(
+    url: string,
+    months: string[],
+    slotDurationInMinutes: string,
+  ): Promise<{ [month: string]: { [day: string]: string[] } }> {
     console.log(`Scraping ${url} for ${months.join(', ')} with slot duration ${slotDurationInMinutes}`);
     const page = await this.browser.newPage();
 
@@ -270,15 +263,16 @@ export class Renderer {
       });
       // First look for any child calendly link
       console.log('Look for any child calendly link');
-      const links: string[] = await page.$$eval('a[data-id="event-type"]', elements =>
+      const links: string[] = await page.$$eval('a[data-id="event-type"]', (elements) =>
         elements
           .map((element) => element.getAttribute('href') ?? '')
           .filter((href) => href !== '')
-          .map((href) => (href.startsWith('https://calendly.com') ? href : `https://calendly.com${href}`))
+          .map((href) => (href.startsWith('https://calendly.com') ? href : `https://calendly.com${href}`)),
       );
 
       // Find the one that matches duration.
-      const matchingLink = links.find((l) => l.includes(`${slotDurationInMinutes}`)) ?? (links.length > 0 ? links[0] : '');
+      const matchingLink =
+        links.find((l) => l.includes(`${slotDurationInMinutes}`)) ?? (links.length > 0 ? links[0] : '');
       if (matchingLink) {
         console.log(`Found matching link ${matchingLink}`);
         link = matchingLink;
@@ -301,7 +295,7 @@ export class Renderer {
           timeout: this.config.timeout, // Default of 10 seconds
           waitUntil: 'networkidle0',
         });
-       
+
         // Wait for the calendar to load
         console.log('Wait for the HTML DOM to load.');
         await page.waitForSelector('[data-testid="calendar-table"]');
@@ -328,7 +322,7 @@ export class Renderer {
 
           for (const button of enabledButtons) {
             // Each button represents a day of the month
-            const day = await button.evaluate(button => button.querySelector('span')?.textContent) ?? '';
+            const day = (await button.evaluate((button) => button.querySelector('span')?.textContent)) ?? '';
             console.log(`Find availability for ${month}-${day}`);
 
             // Navigate to the day
@@ -339,9 +333,9 @@ export class Renderer {
             const timeButtons = await page.$$('[data-container="time-button"]');
 
             // Each time button represents a time slot
-            const startTimes = await Promise.all(timeButtons.map((timeButton => 
-              timeButton.evaluate((button) => button.getAttribute('data-start-time'))
-            )))
+            const startTimes = await Promise.all(
+              timeButtons.map((timeButton) => timeButton.evaluate((button) => button.getAttribute('data-start-time'))),
+            );
 
             console.log(`Found ${startTimes.length} times for ${month}-${day}`);
             availabilities[month][day] = Array.from(new Set(startTimes)).filter((time) => time !== null) as string[];
@@ -362,7 +356,7 @@ export class Renderer {
     isMobile: boolean,
     dimensions: ViewportDimensions,
     options?: ScreenshotOptions,
-    timezoneId?: string
+    timezoneId?: string,
   ): Promise<Buffer> {
     const page = await this.browser.newPage();
 
