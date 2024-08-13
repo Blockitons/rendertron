@@ -258,7 +258,7 @@ export class Renderer {
 
       // Navigate to page.
       response = await page.goto(link, {
-        timeout: this.config.timeout, // Default of 10 seconds
+        timeout: 20000, // Default of 10 seconds
         waitUntil: 'networkidle0',
       });
       // First look for any child calendly link
