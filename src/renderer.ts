@@ -18,6 +18,9 @@ type ViewportDimensions = {
 const MOBILE_USERAGENT =
   'Mozilla/5.0 (Linux; Android 8.0.0; Pixel 2 XL Build/OPD1.170816.004) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.75 Mobile Safari/537.36';
 
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 1000; // 2 seconds
+
 /**
  * Wraps Puppeteer's interface to Headless Chrome to expose high level rendering
  * APIs that are able to handle web components and PWAs.
@@ -290,11 +293,22 @@ export class Renderer {
         console.log(`Scraping ${newUrl.toString()}`);
         availabilities[month] = {};
 
-        // Navigate to page.
-        response = await page.goto(newUrl.toString(), {
-          timeout: this.config.timeout, // Default of 10 seconds
-          waitUntil: 'networkidle0',
-        });
+        for (let retry = 0; retry < MAX_RETRIES; retry++) {
+          try {
+            response = await page.goto(newUrl.toString(), {
+              timeout: 5000, // Use a shorter timeout, max 5 seconds
+              waitUntil: 'networkidle0',
+            });
+            break; // If successful, exit the loop
+          } catch (error) {
+            if (retry === MAX_RETRIES - 1) throw error; // If last retry, throw the error
+            console.log(
+              `Navigation failed. Retrying in ${RETRY_DELAY / 1000} seconds. ` +
+                `(Attempt ${retry + 1}/${MAX_RETRIES})`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+          }
+        }
 
         // Wait for the calendar to load
         console.log('Wait for the HTML DOM to load.');
