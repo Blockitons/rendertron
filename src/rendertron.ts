@@ -166,6 +166,11 @@ export class Rendertron {
 
     try {
       const availabilities = await this.renderer.parseCalendly(url, months, slotDurationInMinutes);
+      if (typeof availabilities === 'string') {
+        ctx.status = 400;
+        ctx.body = availabilities;
+        return;
+      }
       // Mark the response as coming from Rendertron.
       ctx.set('x-renderer', 'rendertron');
       ctx.status = 200;

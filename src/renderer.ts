@@ -238,7 +238,7 @@ export class Renderer {
     url: string,
     months: string[],
     slotDurationInMinutes: string,
-  ): Promise<{ [month: string]: { [day: string]: string[] } }> {
+  ): Promise<{ [month: string]: { [day: string]: string[] } } | string> {
     console.log(`Scraping ${url} for ${months.join(', ')} with slot duration ${slotDurationInMinutes}`);
     const page = await this.browser.newPage();
 
@@ -264,6 +264,15 @@ export class Renderer {
         timeout: 10000, // Default of 10 seconds
         waitUntil: 'networkidle0',
       });
+
+      console.log('Final url', page.url());
+      // Early return if the URL is not from calendly.com domain
+      const parsedUrl = new URL(page.url());
+      if (!parsedUrl.hostname.endsWith('calendly.com')) {
+        console.log('Not a Calendly URL. Aborting scraping.');
+        return 'Not a Calendly URL. Aborting scraping.';
+      }
+
       // First look for any child calendly link
       console.log('Look for any child calendly link');
       const links: string[] = await page.$$eval('a[data-id="event-type"]', (elements) =>
