@@ -261,7 +261,7 @@ export class Renderer {
 
       // Navigate to page.
       response = await page.goto(link, {
-        timeout: 20000, // Default of 10 seconds
+        timeout: 10000, // Default of 10 seconds
         waitUntil: 'networkidle0',
       });
       // First look for any child calendly link
@@ -296,7 +296,7 @@ export class Renderer {
         for (let retry = 0; retry < MAX_RETRIES; retry++) {
           try {
             response = await page.goto(newUrl.toString(), {
-              timeout: 5000, // Use a shorter timeout, max 5 seconds
+              timeout: 10000, //  max 10 seconds
               waitUntil: 'networkidle0',
             });
             break; // If successful, exit the loop
