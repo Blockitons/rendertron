@@ -234,6 +234,24 @@ export class Renderer {
     };
   }
 
+  async goToPageWithRetry(page: puppeteer.Page, url: string): Promise<puppeteer.HTTPResponse> {
+    for (let retry = 0; retry < MAX_RETRIES; retry++) {
+      try {
+        return page.goto(url, {
+          timeout: 10000, //  max 10 seconds
+          waitUntil: 'networkidle0',
+        });
+      } catch (error) {
+        if (retry === MAX_RETRIES - 1) throw error; // If last retry, throw the error
+        console.log(
+          `Navigation failed. Retrying in ${RETRY_DELAY / 1000} seconds. ` + `(Attempt ${retry + 1}/${MAX_RETRIES})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      }
+    }
+    throw new Error('Failed to navigate to page');
+  }
+
   async parseCalendly(
     url: string,
     months: string[],
@@ -260,10 +278,11 @@ export class Renderer {
       let link = url;
 
       // Navigate to page.
-      response = await page.goto(link, {
-        timeout: 10000, // Default of 10 seconds
-        waitUntil: 'networkidle0',
-      });
+      response = await this.goToPageWithRetry(page, link);
+      if (!response) {
+        console.log(`Failed to fetch response from ${link}`);
+        return {};
+      }
 
       console.log('Final url', page.url());
       // Early return if the URL is not from calendly.com domain
@@ -302,22 +321,8 @@ export class Renderer {
         console.log(`Scraping ${newUrl.toString()}`);
         availabilities[month] = {};
 
-        for (let retry = 0; retry < MAX_RETRIES; retry++) {
-          try {
-            response = await page.goto(newUrl.toString(), {
-              timeout: 10000, //  max 10 seconds
-              waitUntil: 'networkidle0',
-            });
-            break; // If successful, exit the loop
-          } catch (error) {
-            if (retry === MAX_RETRIES - 1) throw error; // If last retry, throw the error
-            console.log(
-              `Navigation failed. Retrying in ${RETRY_DELAY / 1000} seconds. ` +
-                `(Attempt ${retry + 1}/${MAX_RETRIES})`,
-            );
-            await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-          }
-        }
+        // Navigate to page.
+        response = await this.goToPageWithRetry(page, newUrl.toString());
 
         // Wait for the calendar to load
         console.log('Wait for the HTML DOM to load.');
