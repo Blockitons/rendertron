@@ -1,4 +1,4 @@
-import puppeteer, { ScreenshotOptions } from 'puppeteer';
+import puppeteer, { Page, ScreenshotOptions } from 'puppeteer';
 import url from 'url';
 import { dirname } from 'path';
 
@@ -257,10 +257,17 @@ export class Renderer {
     months: string[],
     slotDurationInMinutes: string,
   ): Promise<{ [month: string]: { [day: string]: string[] } } | string> {
-    console.log(`Scraping ${url} for ${months.join(', ')} with slot duration ${slotDurationInMinutes}`);
-    const page = await this.browser.newPage();
-
+    let page: Page | null = null;
     try {
+      const existingPages = await this.browser.pages();
+      if (existingPages.length > 0) {
+        console.log(`Number of pages opened: ${existingPages.length}`);
+        console.log('Closing them before proceeding.');
+        await Promise.all(existingPages.map((page) => page.close()));
+      }
+
+      console.log(`Scraping ${url} for ${months.join(', ')} with slot duration ${slotDurationInMinutes}`);
+      page = await this.browser.newPage();
       let response: puppeteer.HTTPResponse | null = null;
       // Capture main frame response. This is used in the case that rendering
       // times out, which results in puppeteer throwing an error. This allows us
