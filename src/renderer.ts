@@ -382,7 +382,9 @@ export class Renderer {
       console.error(e);
       return {};
     } finally {
-      await page.close();
+      if (page) {
+        await page.close();
+      }
     }
   }
 
