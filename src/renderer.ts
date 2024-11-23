@@ -237,13 +237,15 @@ export class Renderer {
   async goToPageWithRetry(page: puppeteer.Page, url: string): Promise<puppeteer.HTTPResponse> {
     for (let retry = 0; retry < MAX_RETRIES; retry++) {
       try {
+        console.log(`Navigating to ${url}`);
         return page.goto(url, {
           timeout: 10000, //  max 10 seconds
           waitUntil: 'networkidle0',
         });
       } catch (error) {
+        console.error(error);
         if (retry === MAX_RETRIES - 1) throw error; // If last retry, throw the error
-        console.log(
+        console.error(
           `Navigation failed. Retrying in ${RETRY_DELAY / 1000} seconds. ` + `(Attempt ${retry + 1}/${MAX_RETRIES})`,
         );
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
@@ -285,9 +287,10 @@ export class Renderer {
       let link = url;
 
       // Navigate to page.
-      response = await this.goToPageWithRetry(page, link);
-      if (!response) {
-        console.log(`Failed to fetch response from ${link}`);
+      try {
+        response = await this.goToPageWithRetry(page, link);
+      } catch (error) {
+        console.error(`Failed to fetch response from ${link}`);
         return {};
       }
 
